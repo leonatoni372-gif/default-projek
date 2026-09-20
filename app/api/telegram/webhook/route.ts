@@ -31,9 +31,6 @@ async function sendTelegramMessage(chatId: string, text: string, parseMode?: str
 // POST — receive webhook from Telegram
 export async function POST(request: NextRequest) {
   const token = process.env.TELEGRAM_BOT_TOKEN;
-  if (!token) {
-    return NextResponse.json({ error: "TELEGRAM_BOT_TOKEN not set" }, { status: 500 });
-  }
 
   let body: unknown;
   try {
@@ -59,17 +56,19 @@ export async function POST(request: NextRequest) {
     text,
   });
 
-  // Send response back
-  await sendTelegramMessage(chatId, response.text, response.parseMode);
+  // Send response back (only if token is configured)
+  if (token) {
+    await sendTelegramMessage(chatId, response.text, response.parseMode);
+  }
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, response: response.text });
 }
 
 // GET — set webhook automatically
-export async function GET(request: NextRequest) {
+export async function GET() {
   const token = process.env.TELEGRAM_BOT_TOKEN;
   if (!token) {
-    return NextResponse.json({ error: "TELEGRAM_BOT_TOKEN not set" }, { status: 500 });
+    return NextResponse.json({ error: "TELEGRAM_BOT_TOKEN not set. Add it to .env.local first." }, { status: 400 });
   }
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";

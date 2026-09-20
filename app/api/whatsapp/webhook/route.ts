@@ -64,7 +64,7 @@ export async function POST(request: NextRequest) {
 
   await sendWhatsAppMessage(from, response.text);
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, response: response.text });
 }
 
 // GET — Meta webhook verification
