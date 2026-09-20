@@ -160,4 +160,9 @@ export class AgentOrchestrator {
   }
 }
 
-export default new AgentOrchestrator();
+const defaultOrchestrator = new AgentOrchestrator();
+export default defaultOrchestrator;
+
+export function getAgent(name: string) {
+  return defaultOrchestrator.getAgent(name);
+}

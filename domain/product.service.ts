@@ -11,7 +11,7 @@
 // import { createClient } from '@supabase/ssr'
 
 // Mock product data for demo mode
-const mockProducts = [
+const mockProducts: Product[] = [
   {
     id: 'prod_1',
     name: 'AI Affiliate Course',
@@ -36,7 +36,17 @@ const mockProducts = [
   },
 ];
 
-export type Product = (typeof mockProducts)[0];
+export type Product = {
+  id: string;
+  name: string;
+  description: string;
+  price: number;
+  commission_rate: number;
+  affiliate_url?: string;
+  status: string;
+  confidence_score?: number;
+  historical_performance?: { views: number; clicks: number; orders: number; revenue: number };
+};
 
 export type ProductScore = {
   demand: number; // 0-1, based on trend signals

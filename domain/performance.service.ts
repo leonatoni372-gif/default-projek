@@ -140,12 +140,18 @@ export class PerformanceService {
   }
 
   private calculateGrade(metrics: PerformanceMetrics): 'A' | 'B' | 'C' | 'D' | 'F' {
-    const score = 0;
-    // Simple grading based on CTR and CVR
-    if (metrics.ctr > 5 && metrics.cvr > 3) return 'A';
-    if (metrics.ctr > 2 && metrics.cvr > 1) return 'B';
-    if (metrics.ctr > 1 || metrics.cvr > 0.5) return 'C';
-    if (metrics.ctr > 0 || metrics.cvr > 0) return 'D';
+    // Weighted composite: CTR 30%, CVR 30%, retention 20%, engagement 20%
+    const ctrScore = Math.min(1, metrics.ctr / 5);
+    const cvrScore = Math.min(1, metrics.cvr / 3);
+    const retentionScore = Math.min(1, metrics.retention / 60);
+    const totalEngagement = metrics.likes + metrics.comments + metrics.shares + metrics.saves;
+    const engagementScore = Math.min(1, metrics.views > 0 ? totalEngagement / (metrics.views * 0.1) : 0);
+    const score = ctrScore * 0.3 + cvrScore * 0.3 + retentionScore * 0.2 + engagementScore * 0.2;
+
+    if (score >= 0.8) return 'A';
+    if (score >= 0.6) return 'B';
+    if (score >= 0.4) return 'C';
+    if (score >= 0.2) return 'D';
     return 'F';
   }
 }

@@ -79,6 +79,51 @@ export const AgentCallSchema = z.object({
   input: z.record(z.unknown()).default({}),
 });
 
+export const ProductListSchema = z.object({
+  status: z.string().optional(),
+  sourceId: z.string().optional(),
+});
+
+export const ProductCreateSchema = z.object({
+  name: z.string().min(1).max(200),
+  description: z.string().min(1).max(2000),
+  price: z.number().min(0),
+  commission_rate: z.number().min(0).max(100),
+  affiliate_url: z.string().url().optional(),
+  status: z.enum(["active", "inactive", "paused"]).default("active"),
+});
+
+export const ContentCreateSchema = z.object({
+  idea_id: z.string().min(1),
+  title: z.string().min(1).max(200),
+  script: z.string().optional(),
+  status: z.enum(["draft", "under_review", "approved", "rejected", "published", "evaluated"]).default("draft"),
+  platform: z.enum(["youtube", "tiktok", "instagram", "twitter", "facebook"]).optional(),
+  assigned_to: z.string().optional(),
+});
+
+export const FinanceRecordSchema = z.object({
+  type: z.enum(["revenue", "commission", "expense"]),
+  amount: z.number(),
+  description: z.string().min(1).max(500),
+  category: z.string().optional(),
+  occurred_at: z.string().optional(),
+  related_entity_id: z.string().optional(),
+  is_projected: z.boolean().default(false),
+});
+
+export const FinanceSummarySchema = z.object({
+  startDate: z.string().optional(),
+  endDate: z.string().optional(),
+});
+
+export const ExperimentCreateSchema = z.object({
+  name: z.string().min(1).max(200),
+  hypothesis: z.string().min(1).max(1000),
+  type: z.enum(["hook", "CTA", "format", "duration", "product", "audience"]),
+  content_item_ids: z.array(z.string()).default([]),
+});
+
 export function validateRequest<T extends z.ZodTypeAny>(
   schema: T,
   data: unknown
