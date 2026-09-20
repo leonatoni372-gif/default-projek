@@ -52,12 +52,17 @@ const COMMANDS: Record<string, { agent: string; describe: (args: string) => stri
     agent: "productScoring",
     describe: (args) => `Skor produk: ${args}`,
     format: (result: unknown) => {
-      const r = result as { scores?: Record<string, number>; rationale?: string[]; overall?: number };
+      const r = result as { scores?: Record<string, number>; rationale?: Record<string, string>; overall?: number; recommendations?: string[] };
       if (!r) return "Gagal menghitung skor.";
+      const overall = r.overall ?? r.scores?.overall ?? "N/A";
+      const rationaleLines = r.rationale
+        ? Object.entries(r.rationale).map(([k, v]) => `• ${k}: ${v}`)
+        : [];
       return [
-        `📊 *Skor Produk: ${r.overall ?? "N/A"}*`,
+        `📊 *Skor Produk: ${overall}*`,
         "",
-        ...(r.rationale || []).map((line: string) => `• ${line}`),
+        ...rationaleLines,
+        ...(r.recommendations || []).map((rec: string) => `💡 ${rec}`),
       ].join("\n");
     },
   },
