@@ -130,16 +130,18 @@ export class ProductService {
   }
 
   async create(product: Omit<Product, "id"> & { id?: string }): Promise<Product> {
-    const id = product.id || `prod_${Date.now()}`;
-    const newProduct: Product = { ...product, id };
-
     const db = getDb();
     if (db) {
-      const { data, error } = await db.from("products").insert(newProduct).select().single();
+      // Let Supabase generate UUID id
+      const { id: _omit, ...insertData } = product as Product & { id?: string };
+      const { data, error } = await db.from("products").insert(insertData).select().single();
       if (error) throw error;
       return data as Product;
     }
 
+    // Mock fallback
+    const id = product.id || `prod_${Date.now()}`;
+    const newProduct: Product = { ...product, id };
     mockProducts.push(newProduct);
     return newProduct;
   }
