@@ -1,0 +1,53 @@
+{
+  "name": "Performance Loop",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "n8n/performance-loop",
+        "responseMode": "responseNode"
+      },
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "position": [250, 300],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "url": "={{$env.APP_URL}}/api/agents",
+        "method": "POST",
+        "bodyParameters": {
+          "parameters": [
+            { "name": "agent", "value": "evaluator" },
+            { "name": "input", "value": "={ \"action\": \"analyze_performance\" }" }
+          ]
+        }
+      },
+      "name": "Evaluator Agent",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [500, 300]
+    },
+    {
+      "parameters": {
+        "url": "={{$env.APP_URL}}/api/performance",
+        "method": "POST"
+      },
+      "name": "Record Metrics",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [750, 200]
+    },
+    {
+      "parameters": {
+        "url": "={{$env.APP_URL}}/api/experiments",
+        "method": "POST"
+      },
+      "name": "Suggest Experiments",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [750, 400]
+    }
+  ],
+  "connections": {
+    "Webhook": { "main": [[{ "node": "Evaluator Agent", "type": "main", "index": 0 }]] },
+    "Evaluator Agent": { "main": [[{ "node": "Record Metrics", "type": "main", "index": 0 }, { "node": "Suggest Experiments", "type": "main", "index": 0 }]] }
+  }
+}

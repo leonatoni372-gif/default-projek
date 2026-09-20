@@ -1,0 +1,44 @@
+{
+  "name": "Daily Finance Pipeline",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "n8n/daily-finance",
+        "responseMode": "responseNode"
+      },
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "position": [250, 300],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "url": "={{$env.APP_URL}}/api/finance",
+        "method": "GET"
+      },
+      "name": "Get Finance Summary",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [500, 300]
+    },
+    {
+      "parameters": {
+        "url": "={{$env.APP_URL}}/api/agents",
+        "method": "POST",
+        "bodyParameters": {
+          "parameters": [
+            { "name": "agent", "value": "finance" },
+            { "name": "input", "value": "={ \"action\": \"daily_summary\" }" }
+          ]
+        }
+      },
+      "name": "Finance Agent Analysis",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [750, 300]
+    }
+  ],
+  "connections": {
+    "Webhook": { "main": [[{ "node": "Get Finance Summary", "type": "main", "index": 0 }]] },
+    "Get Finance Summary": { "main": [[{ "node": "Finance Agent Analysis", "type": "main", "index": 0 }]] }
+  }
+}

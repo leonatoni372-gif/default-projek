@@ -200,7 +200,7 @@ create table if not exists public.expenses (
   user_id uuid references auth.users(id) on delete set null,
   name text not null,
   amount decimal(10, 2) not null,
-  category text not null check (category in 'ad_spend', 'software', 'creative_production', 'platform_fee', 'other'),
+  category text not null check (category in ('ad_spend', 'software', 'creative_production', 'platform_fee', 'other')),
   description text,
   occurred_at timestamptz not null default now(),
   receipt_url text,
@@ -244,11 +244,14 @@ create table if not exists public.experiment_variants (
 -- ============================================
 create table if not exists public.ai_decisions (
   id uuid primary key default gen_random_uuid(),
-  decision_type text not null check (decision_type in ('product_score', 'content_idea', 'compliance', 'experiment')),
+  agent_name text,
+  decision_type text not null,
   input_data jsonb not null,
   output_data jsonb not null,
   rationale text,
+  confidence decimal(5, 2),
   status text not null check (status in ('pending', 'approved', 'rejected')) default 'pending',
+  user_id uuid references auth.users(id) on delete set null,
   created_by uuid references public.profiles(id) on delete set null,
   created_at timestamptz not null default now()
 );

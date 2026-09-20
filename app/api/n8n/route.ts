@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { N8nRequestSchema, validateRequest } from "@/lib/zod/schemas";
+import orchestrator from "@/agents";
+import auditLog from "@/lib/audit";
 
 export async function POST(request: NextRequest) {
   let body: unknown;
@@ -20,24 +22,54 @@ export async function POST(request: NextRequest) {
   try {
     const result = await processWorkflow(workflow, data);
 
-    // In production, log this run to automation_runs table with idempotency_key
+    // Persist automation run to Supabase
+    const db = (await import("@/lib/supabase/db")).getDb();
+    if (db) {
+      await db.from("automation_runs").insert({
+        workflow_name: workflow,
+        status: "completed",
+        trigger_event: "n8n_webhook",
+        input_data: data,
+        output_data: result,
+        idempotency_key: key,
+        completed_at: new Date().toISOString(),
+      });
+    }
+
+    await auditLog.log(`workflow.${workflow}`, "automation", key, { workflow, result });
 
     return NextResponse.json({ success: true, workflow, idempotency_key: key, result, timestamp: new Date().toISOString() });
-  } catch (err: any) {
-    return NextResponse.json({ success: false, error: err.message ?? "Internal error" }, { status: 500 });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Internal error";
+    return NextResponse.json({ success: false, error: message }, { status: 500 });
   }
 }
 
-async function processWorkflow(workflow: string, _data: Record<string, unknown>) {
+async function processWorkflow(workflow: string, data: Record<string, unknown>) {
   switch (workflow) {
-    case "daily_intelligence":
-      return { status: "processing", steps: ["Collecting trends...", "Normalizing signals...", "Discovering products...", "Scoring products...", "Generating CEO recommendations...", "Saving audit trail..."] };
-    case "content_production":
-      return { status: "processing", steps: ["Creating content idea...", "Generating script...", "Creating creative brief...", "Running compliance check...", "Queuing for human approval..."] };
-    case "performance_loop":
-      return { status: "processing", steps: ["Analyzing analytics data...", "Running evaluator...", "Calculating finance attribution...", "Generating experiment suggestions...", "Updating memory...", "Feeding results to CEO..."] };
-    case "daily_finance":
-      return { status: "processing", steps: ["Collecting orders...", "Processing commissions...", "Recording expenses...", "Calculating finance metrics...", "Updating dashboard...", "Checking for anomalies..."] };
+    case "daily_intelligence": {
+      const [trends, products] = await Promise.all([
+        orchestrator.execute("trend", data),
+        orchestrator.execute("productResearch", data),
+      ]);
+      const scored = await orchestrator.execute("productScoring", { products, trends });
+      const ceo = await orchestrator.execute("ceo", { action: "daily_recommendations", trends, products, scored });
+      return { status: "completed", trends, products, scored, recommendations: ceo };
+    }
+    case "content_production": {
+      const idea = await orchestrator.execute("content", { action: "generate_idea", ...data });
+      const brief = await orchestrator.execute("creative", { idea });
+      return { status: "completed", idea, brief };
+    }
+    case "performance_loop": {
+      const analysis = await orchestrator.execute("evaluator", { action: "analyze_performance", ...data });
+      const experiments = await orchestrator.execute("experiment", { analysis });
+      return { status: "completed", analysis, experiments };
+    }
+    case "daily_finance": {
+      const finance = await orchestrator.execute("finance", { action: "daily_summary", ...data });
+      return { status: "completed", finance };
+    }
     default:
       throw new Error(`Unknown workflow: ${workflow}`);
   }

@@ -1,0 +1,82 @@
+{
+  "name": "Daily Intelligence Pipeline",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "n8n/daily-intelligence",
+        "responseMode": "responseNode"
+      },
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "position": [250, 300],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "url": "={{$env.APP_URL}}/api/agents",
+        "method": "POST",
+        "bodyParameters": {
+          "parameters": [
+            { "name": "agent", "value": "trend" },
+            { "name": "input", "value": "={}" }
+          ]
+        }
+      },
+      "name": "Run Trend Agent",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [500, 200]
+    },
+    {
+      "parameters": {
+        "url": "={{$env.APP_URL}}/api/agents",
+        "method": "POST",
+        "bodyParameters": {
+          "parameters": [
+            { "name": "agent", "value": "productResearch" },
+            { "name": "input", "value": "={}" }
+          ]
+        }
+      },
+      "name": "Run Product Research",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [500, 400]
+    },
+    {
+      "parameters": {
+        "url": "={{$env.APP_URL}}/api/agents",
+        "method": "POST",
+        "bodyParameters": {
+          "parameters": [
+            { "name": "agent", "value": "productScoring" },
+            { "name": "input", "value": "={}" }
+          ]
+        }
+      },
+      "name": "Run Product Scoring",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [750, 300]
+    },
+    {
+      "parameters": {
+        "url": "={{$env.APP_URL}}/api/agents",
+        "method": "POST",
+        "bodyParameters": {
+          "parameters": [
+            { "name": "agent", "value": "ceo" },
+            { "name": "input", "value": "={ \"action\": \"daily_recommendations\" }" }
+          ]
+        }
+      },
+      "name": "CEO Recommendations",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [1000, 300]
+    }
+  ],
+  "connections": {
+    "Webhook": { "main": [[{ "node": "Run Trend Agent", "type": "main", "index": 0 }, { "node": "Run Product Research", "type": "main", "index": 0 }]] },
+    "Run Trend Agent": { "main": [[{ "node": "Run Product Scoring", "type": "main", "index": 0 }]] },
+    "Run Product Research": { "main": [[{ "node": "Run Product Scoring", "type": "main", "index": 0 }]] },
+    "Run Product Scoring": { "main": [[{ "node": "CEO Recommendations", "type": "main", "index": 0 }]] }
+  }
+}

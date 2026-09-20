@@ -1,0 +1,54 @@
+{
+  "name": "Content Production Pipeline",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "n8n/content-production",
+        "responseMode": "responseNode"
+      },
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "position": [250, 300],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "url": "={{$env.APP_URL}}/api/agents",
+        "method": "POST",
+        "bodyParameters": {
+          "parameters": [
+            { "name": "agent", "value": "content" },
+            { "name": "input", "value": "={ \"action\": \"generate_idea\" }" }
+          ]
+        }
+      },
+      "name": "Generate Content Idea",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [500, 300]
+    },
+    {
+      "parameters": {
+        "url": "={{$env.APP_URL}}/api/content",
+        "method": "POST"
+      },
+      "name": "Create Content Item",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [750, 300]
+    },
+    {
+      "parameters": {
+        "url": "={{$env.APP_URL}}/api/compliance",
+        "method": "POST"
+      },
+      "name": "Compliance Check",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [1000, 300]
+    }
+  ],
+  "connections": {
+    "Webhook": { "main": [[{ "node": "Generate Content Idea", "type": "main", "index": 0 }]] },
+    "Generate Content Idea": { "main": [[{ "node": "Create Content Item", "type": "main", "index": 0 }]] },
+    "Create Content Item": { "main": [[{ "node": "Compliance Check", "type": "main", "index": 0 }]] }
+  }
+}
