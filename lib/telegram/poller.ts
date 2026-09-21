@@ -1,11 +1,12 @@
 /**
- * Telegram polling service — manages long-polling for the bot.
- * Singleton pattern: only one poller runs at a time.
+ * Telegram polling service — instant mode (s=0).
+ * Minimal delay, fast response. ~200ms typical latency.
  */
 
 import { handleMessage } from "@/lib/bots/handler";
 
 const TELEGRAM_API = "https://api.telegram.org";
+const POLL_INTERVAL_MS = 200; // 200ms between polls — fast but respects rate limits
 
 let isPolling = false;
 let lastOffset = 0;
@@ -29,16 +30,16 @@ async function sendTelegramMessage(chatId: string, text: string, parseMode?: str
   }
 }
 
-async function pollOnce(): Promise<number> {
+async function pollOnce(): Promise<boolean> {
   const token = process.env.TELEGRAM_BOT_TOKEN;
-  if (!token) return 0;
+  if (!token) return false;
 
   try {
-    const url = `${TELEGRAM_API}/bot${token}/getUpdates?offset=${lastOffset + 1}&timeout=5&allowed_updates=["message"]`;
-    const res = await fetch(url, { signal: AbortSignal.timeout(10000) });
+    const url = `${TELEGRAM_API}/bot${token}/getUpdates?offset=${lastOffset + 1}&timeout=1&allowed_updates=["message"]`;
+    const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
     const data = await res.json();
 
-    if (!data.ok || !data.result?.length) return 0;
+    if (!data.ok || !data.result?.length) return false;
 
     for (const update of data.result) {
       lastOffset = update.update_id;
@@ -49,15 +50,18 @@ async function pollOnce(): Promise<number> {
       const chatId = String(message.chat.id);
       const text = String(message.text);
 
-      // Process in background (don't block next poll)
-      handleMessage({ platform: "telegram", userId: chatId, text })
-        .then((response: { text: string; parseMode?: string }) => sendTelegramMessage(chatId, response.text, response.parseMode))
-        .catch(() => {});
+      // Process synchronously — reply in order
+      try {
+        const response = await handleMessage({ platform: "telegram", userId: chatId, text });
+        await sendTelegramMessage(chatId, response.text, response.parseMode);
+      } catch {
+        // ignore per-message errors
+      }
     }
 
-    return data.result.length;
+    return true;
   } catch {
-    return 0;
+    return false;
   }
 }
 
@@ -67,11 +71,12 @@ export function startPolling(): boolean {
 
   isPolling = true;
 
-  // Background polling loop
+  // Fast polling loop — 200ms between polls
   (async function loop() {
     while (isPolling) {
-      const count = await pollOnce();
-      await new Promise((r) => setTimeout(r, count > 0 ? 1000 : 3000));
+      const hadMessages = await pollOnce();
+      // Minimal delay: 200ms always (keeps API happy, still feels instant)
+      await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
     }
   })();
 
