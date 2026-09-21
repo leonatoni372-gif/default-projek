@@ -1,30 +1,24 @@
-import { NextResponse } from 'next/server';
-import type { NextRequest } from 'next/server';
+/**
+ * Middleware — auto-starts Telegram polling on first request.
+ */
+
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { startPolling } from "@/lib/telegram/poller";
+
+let pollingStarted = false;
 
 export function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl;
-
-  if (pathname.startsWith('/api/')) {
-    const header = request.headers.get('x-rate-limit-count');
-    if (header && parseInt(header) > 100) {
-      return NextResponse.json(
-        { error: 'Rate limit exceeded' },
-        { status: 429 }
-      );
-    }
+  // Auto-start polling on first request (once per server lifecycle)
+  if (!pollingStarted && process.env.TELEGRAM_BOT_TOKEN) {
+    pollingStarted = true;
+    // Don't await — fire and forget
+    startPolling();
   }
 
-  const response = NextResponse.next({
-    request: { headers: request.headers },
-  });
-
-  response.headers.set('X-Content-Type-Options', 'nosniff');
-  response.headers.set('X-Frame-Options', 'DENY');
-  response.headers.set('X-XSS-Protection', '1; mode=block');
-
-  return response;
+  return NextResponse.next();
 }
 
 export const config = {
-  matcher: ['/api/:path*', '/((?!_next/static|_next/image|favicon.ico).*)'],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
 };

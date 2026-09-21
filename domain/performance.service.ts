@@ -59,7 +59,10 @@ export class PerformanceService {
         ctr: newMetrics.ctr, cvr: newMetrics.cvr,
         earnings_per_1k_views: newMetrics.earnings_per_1k_views, profit_per_content: newMetrics.profit_per_content,
       });
-      if (error) throw error;
+      // Ignore foreign key errors — content_item may not exist yet
+      if (error && !error.message?.includes("foreign key")) {
+        throw error;
+      }
     }
 
     return newMetrics;

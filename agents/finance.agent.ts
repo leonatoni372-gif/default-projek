@@ -152,6 +152,56 @@ export class FinanceAgent {
     }
     return { valid: issues.length === 0, issues };
   }
+
+  /**
+   * Daily summary — fetches from Supabase and returns metrics
+   */
+  async daily_summary(data: Record<string, unknown> = {}): Promise<FinanceMetrics> {
+    const { getDb } = await import('@/lib/supabase/db');
+    const db = getDb();
+    if (!db) return this.emptyMetrics();
+
+    const days = (data.days as number) || 30;
+    const since = new Date(Date.now() - days * 86400000).toISOString();
+
+    const [ordersRes, commissionsRes, expensesRes] = await Promise.all([
+      db.from('orders').select('amount, commission_amount').gte('order_date', since),
+      db.from('commissions').select('amount, status').gte('created_at', since),
+      db.from('expenses').select('amount, category').gte('occurred_at', since),
+    ]);
+
+    const orders = (ordersRes.data || []) as Record<string, unknown>[];
+    const commissions = (commissionsRes.data || []) as Record<string, unknown>[];
+    const expenses = (expensesRes.data || []) as Record<string, unknown>[];
+
+    const totalRevenue = orders.reduce((s, r) => s + ((r.amount as number) || 0), 0);
+    const totalCommission = commissions.reduce((s, r) => s + ((r.amount as number) || 0), 0);
+    const totalExpenses = expenses.reduce((s, r) => s + ((r.amount as number) || 0), 0);
+    const netProfit = totalCommission - totalExpenses;
+    const roi = totalExpenses > 0 ? ((netProfit / totalExpenses) * 100) : 0;
+
+    return {
+      total_revenue_actual: totalRevenue,
+      total_revenue_estimated: 0,
+      total_revenue_projected: 0,
+      total_commissions_actual: totalCommission,
+      total_expenses_actual: totalExpenses,
+      net_profit_actual: netProfit,
+      net_profit_projected: 0,
+      roi: Number(roi.toFixed(2)),
+      profit_per_content: totalCommission,
+      profit_per_product: [netProfit],
+    };
+  }
+
+  private emptyMetrics(): FinanceMetrics {
+    return {
+      total_revenue_actual: 0, total_revenue_estimated: 0, total_revenue_projected: 0,
+      total_commissions_actual: 0, total_expenses_actual: 0,
+      net_profit_actual: 0, net_profit_projected: 0, roi: 0,
+      profit_per_content: 0, profit_per_product: [],
+    };
+  }
 }
 
 export default new FinanceAgent();

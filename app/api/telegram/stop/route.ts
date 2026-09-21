@@ -4,13 +4,10 @@
  */
 
 import { NextResponse } from "next/server";
-
-// Shared polling state — imported from start route via global
-declare global {
-  var __tgPolling: boolean;
-}
+import { stopPolling, getPollingStatus } from "@/lib/telegram/poller";
 
 export async function GET() {
-  globalThis.__tgPolling = false;
-  return NextResponse.json({ status: "stopped", message: "Auto-polling stopped." });
+  const before = getPollingStatus();
+  stopPolling();
+  return NextResponse.json({ status: "stopped", was_polling: before.active });
 }

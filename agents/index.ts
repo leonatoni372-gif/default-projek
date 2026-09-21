@@ -95,6 +95,8 @@ export class AgentOrchestrator {
         output = await agentInstance.research(inputData);
       } else if (typeof agentInstance.analyze === 'function') {
         output = await agentInstance.analyze(inputData);
+      } else if (typeof agentInstance.daily_summary === 'function') {
+        output = await agentInstance.daily_summary(inputData);
       } else if (typeof agentInstance.calculate === 'function') {
         output = await agentInstance.calculate(inputData);
       } else if (typeof agentInstance.score === 'function') {
