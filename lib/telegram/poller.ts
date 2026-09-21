@@ -81,6 +81,8 @@ async function pollOnce(): Promise<boolean> {
 }
 
 export function startPolling(): boolean {
+  // Production uses webhook — polling only for localhost dev
+  if (process.env.VERCEL) return false;
   const token = process.env.TELEGRAM_BOT_TOKEN;
   if (globalThis.__tgPolling === undefined) globalThis.__tgPolling = false;
   if (token && globalThis.__tgPolling) return true;

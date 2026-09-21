@@ -12,6 +12,17 @@ import { NextRequest, NextResponse } from "next/server";
 import { handleMessage } from "@/lib/bots/handler";
 
 const TELEGRAM_API = "https://api.telegram.org";
+const WEBHOOK_SECRET = process.env.TELEGRAM_WEBHOOK_SECRET;
+
+// Simple in-memory rate limit: 5 req / 10s per chat
+const bucket = new Map<string, number[]>();
+function isRateLimited(chatId: string, limit = 5, windowMs = 10000): boolean {
+  const now = Date.now();
+  const arr = (bucket.get(chatId) || []).filter((t) => now - t < windowMs);
+  arr.push(now);
+  bucket.set(chatId, arr);
+  return arr.length > limit;
+}
 
 async function sendTelegramMessage(chatId: string, text: string, parseMode?: string) {
   const token = process.env.TELEGRAM_BOT_TOKEN;
@@ -43,6 +54,12 @@ async function sendTelegramMessage(chatId: string, text: string, parseMode?: str
 export async function POST(request: NextRequest) {
   const token = process.env.TELEGRAM_BOT_TOKEN;
 
+  // Verify secret header if configured (prevents spoofed updates)
+  if (WEBHOOK_SECRET) {
+    const got = request.headers.get("x-telegram-bot-api-secret-token");
+    if (got !== WEBHOOK_SECRET) return NextResponse.json({ ok: false }, { status: 401 });
+  }
+
   let body: unknown;
   try {
     body = await request.json();
@@ -59,6 +76,7 @@ export async function POST(request: NextRequest) {
   const text = String(message.text || "");
 
   if (!text || !chatId) return NextResponse.json({ ok: true });
+  if (isRateLimited(chatId)) return NextResponse.json({ ok: true }); // silent drop on spam
 
   // Process message
   const response = await handleMessage({
@@ -85,9 +103,8 @@ export async function GET() {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
   const webhookUrl = `${appUrl}/api/telegram/webhook`;
 
-  const res = await fetch(`${TELEGRAM_API}/bot${token}/setWebhook?url=${encodeURIComponent(webhookUrl)}`, {
-    method: "POST",
-  });
+  const url = `${TELEGRAM_API}/bot${token}/setWebhook?url=${encodeURIComponent(webhookUrl)}${WEBHOOK_SECRET ? `&secret_token=${WEBHOOK_SECRET}` : ""}`;
+  const res = await fetch(url, { method: "POST" });
 
   const data = await res.json();
   return NextResponse.json({ success: true, webhook_url: webhookUrl, telegram_response: data });

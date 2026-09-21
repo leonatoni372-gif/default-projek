@@ -87,36 +87,19 @@ export class AgentOrchestrator {
     this.agentRuns.push(run);
 
     try {
-      // Call the agent's research/analyze method
+      // Typed registry: explicit method per agent, avoids order-dependent if-else bug
+      // Finance has two methods: daily_summary (when action=daily_summary) vs calculate
       let output: any;
       const agentInstance = agent as any;
 
-      if (typeof agentInstance.research === 'function') {
-        output = await agentInstance.research(inputData);
-      } else if (typeof agentInstance.analyze === 'function') {
-        output = await agentInstance.analyze(inputData);
-      } else if (typeof agentInstance.daily_summary === 'function') {
+      // Finance special: route by input.action
+      if (agentName === "finance" && inputData?.action === "daily_summary" && typeof agentInstance.daily_summary === "function") {
         output = await agentInstance.daily_summary(inputData);
-      } else if (typeof agentInstance.calculate === 'function') {
-        output = await agentInstance.calculate(inputData);
-      } else if (typeof agentInstance.score === 'function') {
-        output = await agentInstance.score(inputData);
-      } else if (typeof agentInstance.check === 'function') {
-        output = await agentInstance.check(inputData);
-      } else if (typeof agentInstance.generateIdeas === 'function') {
-        output = await agentInstance.generateIdeas(inputData);
-      } else if (typeof agentInstance.generateBrief === 'function') {
-        output = await agentInstance.generateBrief(inputData);
-      } else if (typeof agentInstance.generateAsset === 'function') {
-        output = await agentInstance.generateAsset(inputData);
-      } else if (typeof agentInstance.create === 'function') {
-        output = await agentInstance.create(inputData);
-      } else if (typeof agentInstance.interpret === 'function') {
-        output = await agentInstance.interpret(inputData);
-      } else if (typeof agentInstance.store === 'function') {
-        output = await agentInstance.store(inputData);
       } else {
-        output = await agentInstance.execute?.(inputData) || {};
+        const prioritized = ["research", "analyze", "score", "check", "calculate", "generateIdeas", "generateBrief", "generateAsset", "create", "interpret", "store", "daily_summary", "execute"];
+        const method = prioritized.find((m) => typeof agentInstance[m] === "function");
+        if (method) output = await agentInstance[method](inputData);
+        else output = {};
       }
 
       run.status = 'completed';
