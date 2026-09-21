@@ -17,15 +17,26 @@ async function sendTelegramMessage(chatId: string, text: string, parseMode?: str
   const token = process.env.TELEGRAM_BOT_TOKEN;
   if (!token) return;
 
-  await fetch(`${TELEGRAM_API}/bot${token}/sendMessage`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      chat_id: chatId,
-      text,
-      parse_mode: parseMode || "HTML",
-    }),
-  });
+  // Try with parseMode first, fallback to plain text if Telegram rejects
+  const trySend = async (mode?: string) => {
+    const res = await fetch(`${TELEGRAM_API}/bot${token}/sendMessage`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        chat_id: chatId,
+        text: mode ? text : text.replace(/\*/g, ""),
+        ...(mode ? { parse_mode: mode } : {}),
+      }),
+    });
+    const data = await res.json().catch(() => ({}));
+    return { ok: res.ok, data };
+  };
+
+  const first = await trySend(parseMode);
+  if (!first.ok) {
+    // Fallback: plain text without markdown
+    await trySend(undefined);
+  }
 }
 
 // POST — receive webhook from Telegram

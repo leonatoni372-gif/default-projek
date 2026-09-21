@@ -22,19 +22,26 @@ async function sendTelegramMessage(chatId: string, text: string, parseMode?: str
   const token = process.env.TELEGRAM_BOT_TOKEN;
   if (!token) return;
 
-  try {
-    await fetch(`${TELEGRAM_API}/bot${token}/sendMessage`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        chat_id: chatId,
-        text,
-        parse_mode: parseMode || "HTML",
-      }),
-    });
-  } catch {
-    // ignore send errors
-  }
+  const trySend = async (mode?: string) => {
+    try {
+      const res = await fetch(`${TELEGRAM_API}/bot${token}/sendMessage`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          chat_id: chatId,
+          text: mode ? text : text.replace(/\*/g, ""),
+          ...(mode ? { parse_mode: mode } : {}),
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      return (data as { ok?: boolean }).ok !== false;
+    } catch {
+      return false;
+    }
+  };
+
+  const ok = await trySend(parseMode);
+  if (!ok) await trySend(undefined);
 }
 
 async function pollOnce(): Promise<boolean> {
