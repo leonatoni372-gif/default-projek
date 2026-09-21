@@ -135,6 +135,59 @@ const COMMANDS: Record<string, { agent: string; format: (result: unknown) => str
   },
 };
 
+async function handleOpenQuestion(q: string): Promise<BotResponse> {
+  const lower = q.toLowerCase();
+
+  // Try AI first if available (now falls back to mock gracefully)
+  if (process.env.AI_API_KEY) {
+    try {
+      const { generateCompletion } = await import("@/lib/ai/provider");
+      const res = await generateCompletion(
+        [
+          { role: "system", content: "You are a helpful affiliate marketing assistant. Answer concisely in Indonesian. If the question is outside affiliate marketing, guide the user to use /help." },
+          { role: "user", content: q },
+        ],
+        { temperature: 0.7 }
+      );
+      // If mock, don't return mock text — fall through to local answers
+      if (!res.content.includes("[mock]")) {
+        return { text: res.content, parseMode: "HTML" };
+      }
+    } catch {
+      // fall through to local answers
+    }
+  }
+
+  // Local answers — no AI needed, always works
+  if (lower.includes("affiliate") && (lower.includes("apa") || lower.includes("itu apa") || lower.includes("pengertian"))) {
+    return { text: "Affiliate marketing itu kamu promosiin produk orang lain, tiap ada yang beli lewat link kamu, kamu dapat komisi 💸\n\nMau cari produk? Coba /products\nMau cek tren? Coba /trend AI,marketing", parseMode: "HTML" };
+  }
+  if (lower.includes("komisi") || lower.includes("commission")) {
+    return { text: "Komisi = % yang kamu dapat dari harga produk.\n\nContoh: produk $100, komisi 30% → kamu dapat $30 per sale.\n\nCek produk & komisinya: /products\nHitung skor produk: /score Nama,99,30", parseMode: "HTML" };
+  }
+  if (lower.includes("produk") && (lower.includes("rekomendasi") || lower.includes("bagus") || lower.includes("cari") || lower.includes("pilih"))) {
+    return { text: "Mau cari produk bagus?\n\n1. Lihat list: /products\n2. Skor produk: /score NamaProduk,99,30\n3. Cek tren: /trend AI,marketing\n\nSaya hitung skor dari komisi, harga, demand, & competition 🔥", parseMode: "HTML" };
+  }
+  if (lower.includes("tren") || lower.includes("trend") || lower.includes("viral")) {
+    return { text: "Mau cek tren?\n\nKetik: /trend keyword1,keyword2\nContoh: /trend AI,affiliate marketing\n\nSaya kasih arah naik/turun + kekuatan sinyal 📈", parseMode: "HTML" };
+  }
+  if (lower.includes("compliance") || lower.includes("aman") || lower.includes("melanggar") || lower.includes(" disclosure")) {
+    return { text: "Cek compliance konten:\n\nKetik: /compliance teks konten kamu\nContoh: /compliance Produk ini bagus banget affiliate link di bio\n\nSaya cek disclosure, klaim, dll ✅🚫", parseMode: "HTML" };
+  }
+  if (lower.includes("cara") || lower.includes("gimana") || lower.includes("bagaimana") || lower.includes("mulai")) {
+    return { text: "Mau mulai affiliate?\n\n1. /products — lihat produk\n2. /trend — cek tren\n3. /score — hitung potensi\n4. /compliance — cek konten aman\n5. /finance — lihat cuan 💰\n\nAtau langsung tanya: \"produk apa yang bagus?\"", parseMode: "HTML" };
+  }
+  if (lower.includes("cuannya") || lower.includes("profit") || lower.includes("untung") || lower.includes("finance") || lower.includes("duit")) {
+    return { text: "Mau lihat keuangan?\n\nKetik: /finance\n\nSaya kasih summary 30 hari: revenue, commission, expenses, profit 💰", parseMode: "HTML" };
+  }
+
+  // Generic fallback — guide to commands
+  return {
+    text: `Saya ngerti kamu tanya: "${q.slice(0, 60)}..."\n\nSaya bisa bantu tanpa AI:\n📦 /products — list produk\n📈 /trend — cek tren\n🎯 /score — skor produk\n✅ /compliance — cek konten\n💰 /finance — keuangan\n\nAtau ketik /help untuk semua command!`,
+    parseMode: "HTML",
+  };
+}
+
 export async function handleMessage(msg: BotMessage): Promise<BotResponse> {
   const text = msg.text.trim();
 
@@ -152,10 +205,8 @@ export async function handleMessage(msg: BotMessage): Promise<BotResponse> {
 
   const cmd = COMMANDS[command.toLowerCase()];
   if (!cmd) {
-    return {
-      text: `Hmm, saya ngerti kamu mau bilang "${text.slice(0, 30)}..." tapi saya belum bisa itu.\n\nKetik /help untuk lihat yang bisa saya bantu!`,
-      parseMode: "HTML",
-    };
+    // Open question — try to answer without AI (works even when AI_API_KEY missing)
+    return handleOpenQuestion(text);
   }
 
   // /start and /help

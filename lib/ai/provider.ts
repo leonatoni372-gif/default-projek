@@ -99,12 +99,13 @@ export async function generateCompletion(
   opts?: { temperature?: number; response_format?: { type: "json_object" } }
 ): Promise<AIResponse> {
   const provider = (process.env.AI_PROVIDER || "mock").toLowerCase();
+  const hasKey = !!process.env.AI_API_KEY;
 
-  if (provider === "openai-compatible") {
+  if (provider === "openai-compatible" && hasKey) {
     return callOpenAICompatible(messages, opts);
   }
 
-  // Default: mock
+  // Fallback to mock when key missing — bot stays alive without AI
   return mockResponse(messages, opts);
 }
 
