@@ -8,8 +8,15 @@ import { handleMessage } from "@/lib/bots/handler";
 const TELEGRAM_API = "https://api.telegram.org";
 const POLL_INTERVAL_MS = 200; // 200ms between polls — fast but respects rate limits
 
-let isPolling = false;
-let lastOffset = 0;
+declare global {
+  var __tgPolling: boolean | undefined;
+  var __tgOffset: number | undefined;
+}
+function getState() {
+  if (globalThis.__tgPolling === undefined) globalThis.__tgPolling = false;
+  if (globalThis.__tgOffset === undefined) globalThis.__tgOffset = 0;
+  return { isPolling: globalThis.__tgPolling, lastOffset: globalThis.__tgOffset };
+}
 
 async function sendTelegramMessage(chatId: string, text: string, parseMode?: string) {
   const token = process.env.TELEGRAM_BOT_TOKEN;
@@ -33,16 +40,17 @@ async function sendTelegramMessage(chatId: string, text: string, parseMode?: str
 async function pollOnce(): Promise<boolean> {
   const token = process.env.TELEGRAM_BOT_TOKEN;
   if (!token) return false;
+  if (globalThis.__tgOffset === undefined) globalThis.__tgOffset = 0;
 
   try {
-    const url = `${TELEGRAM_API}/bot${token}/getUpdates?offset=${lastOffset + 1}&timeout=1&allowed_updates=["message"]`;
+    const url = `${TELEGRAM_API}/bot${token}/getUpdates?offset=${globalThis.__tgOffset + 1}&timeout=1&allowed_updates=["message"]`;
     const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
     const data = await res.json();
 
     if (!data.ok || !data.result?.length) return false;
 
     for (const update of data.result) {
-      lastOffset = update.update_id;
+      globalThis.__tgOffset = update.update_id;
 
       const message = update.message;
       if (!message?.text || !message?.chat?.id) continue;
@@ -67,14 +75,16 @@ async function pollOnce(): Promise<boolean> {
 
 export function startPolling(): boolean {
   const token = process.env.TELEGRAM_BOT_TOKEN;
-  if (!token || isPolling) return isPolling;
+  if (globalThis.__tgPolling === undefined) globalThis.__tgPolling = false;
+  if (token && globalThis.__tgPolling) return true;
+  if (!token) return false;
 
-  isPolling = true;
+  globalThis.__tgPolling = true;
 
   // Fast polling loop — 200ms between polls
   (async function loop() {
-    while (isPolling) {
-      const hadMessages = await pollOnce();
+    while (globalThis.__tgPolling) {
+      await pollOnce();
       // Minimal delay: 200ms always (keeps API happy, still feels instant)
       await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
     }
@@ -84,9 +94,9 @@ export function startPolling(): boolean {
 }
 
 export function stopPolling(): void {
-  isPolling = false;
+  globalThis.__tgPolling = false;
 }
 
 export function getPollingStatus(): { active: boolean; offset: number } {
-  return { active: isPolling, offset: lastOffset };
+  return { active: !!globalThis.__tgPolling, offset: globalThis.__tgOffset ?? 0 };
 }

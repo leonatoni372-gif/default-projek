@@ -6,12 +6,9 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { startPolling } from "@/lib/telegram/poller";
 
-let pollingStarted = false;
-
 export function middleware(request: NextRequest) {
   // Auto-start polling on first request (once per server lifecycle)
-  if (!pollingStarted && process.env.TELEGRAM_BOT_TOKEN) {
-    pollingStarted = true;
+  if (!(globalThis as unknown as Record<string, unknown>).__tgPolling && process.env.TELEGRAM_BOT_TOKEN) {
     // Don't await — fire and forget
     startPolling();
   }
